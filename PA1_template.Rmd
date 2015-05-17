@@ -1,0 +1,110 @@
+---
+title: "PA1_template"
+author: "grvn12"
+date: "Sunday, May 17, 2015"
+output: html_document
+---
+
+#Introduction
+
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the "quantified self" movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+Data
+Dataset: Activity monitoring data [52K]
+The variables included in this dataset are:
+
+steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+
+date: The date on which the measurement was taken in YYYY-MM-DD format
+
+interval: Identifier for the 5-minute interval in which measurement was taken
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+
+Loading and preprocessing the data from the CSV file to a table
+
+```{r, echo=TRUE}
+unzip(zipfile="./repdata-data-activity.zip")
+dataActivity  <- read.table("activity.csv",header=TRUE, quote="\"", sep=",", colClasses=c("integer", "Date", "integer"))
+```
+#What is mean total number of steps taken per day?
+
+##First calcualting total number of steps taken per day (ignoring missing values).
+
+```{r,echo=TRUE}
+# ignoring the missing values 
+dataActivityIgnoreNA <- na.omit(dataActivity)
+dailySteps <- tapply(dataActivityIgnoreNA$steps, dataActivityIgnoreNA$date,sum)
+hist(dailySteps, 
+     main=" ",
+     breaks=10,
+     xlab="Total number of stesp taken each day")
+```
+###Calculating to report the mean and median of the total number of steps taken per day
+
+```{r,echo=TRUE}
+mean(dailySteps)
+median(dailySteps)
+```
+
+
+#What is the average daily activity pattern?
+
+```{r,echo=TRUE}
+dataActivityIgnoreNA$interval <- 60*floor((dataActivityIgnoreNA$interval+1)/100) + (dataActivityIgnoreNA$interval %% 100)
+avgDailysteps <- tapply(dataActivityIgnoreNA$steps, dataActivityIgnoreNA$interval, mean)
+hours <- as.numeric(names(avgDailysteps))/60
+plot(x= hours,y= avgDailysteps,type = "l", ylab = "steps taken, averaged across all days", 
+     xlab = "5-minute interval", main = "Average daily activity pattern")
+```
+
+##The Maximum number of steps taken in the interval of 
+
+```{r,echo=TRUE}
+max_interval <- dataActivityIgnoreNA$interval[which(avgDailysteps==max(avgDailysteps))]
+sprintf("%02d:%02d", floor(max_interval/60), max_interval %% 60)
+```
+
+##The total number of missing values in the dataset is
+```{r,echo=TRUE}
+sum(is.na(dataActivity))
+```
+
+##Imputing missing values with Average daily interval by transforming it to a new table.
+
+```{r,echo=TRUE}
+imputeNAwithAvg <- transform(dataActivity, steps=ifelse(is.na(steps), avgDailysteps, steps))
+```
+
+Now calculating the total number of steps after imputing the NA values.
+
+```{r,echo=TRUE}
+impdailySteps <- tapply(imputeNAwithAvg$steps, imputeNAwithAvg$date,sum)
+hist(impdailySteps, 
+     main=" ",
+     breaks=10,
+     xlab="Total number of stesp taken each day")
+mean(impdailySteps)
+median(impdailySteps)
+```
+#Are there differences in activity patterns between weekdays and weekends?
+
+```{r,echo=TRUE}
+week <- factor(weekdays(imputeNAwithAvg$date) %in% c("Saturday","Sunday"), 
+               labels=c("weekday","weekend"), ordered=FALSE)
+
+impsteps <- aggregate(imputeNAwithAvg$steps, by=list(interval=imputeNAwithAvg$interval, weekday=week), mean)
+
+library(ggplot2)
+g <- ggplot(impsteps, aes(interval/60, x))
+g + geom_line() + facet_grid(weekday ~ .) +
+  scale_x_continuous(breaks=0:6*4, labels=paste(0:6*4,":00", sep="")) +
+  theme_bw() +
+  labs(y="average number of steps in 5-min interval") +
+  labs(x="time of day (h)") +
+  labs(title="Daily activity pattern")
+```
+
+#Based on the graphs, I conclude that there is increase in activities during the weekend over weekdays.
